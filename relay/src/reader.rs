@@ -34,7 +34,7 @@ impl Reader {
                     msg: OutgoingMessage::event(&msg.subscription.id, &event),
                 });
             }
-            histogram!("nostr_relay_db_get", start.elapsed());
+            histogram!("nostr_relay_db_get").record(start.elapsed());
         }
         self.addr.do_send(ReadEventResult {
             id: msg.id,
@@ -55,10 +55,14 @@ impl Handler<ReadEvent> for Reader {
     type Result = ();
     fn handle(&mut self, msg: ReadEvent, _: &mut Self::Context) {
         if let Err(err) = self.read(&msg) {
+            let m = OutgoingMessage::closed(
+                msg.subscription.id.as_str(),
+                &format!("get event error: {}", err),
+            );
             self.addr.do_send(ReadEventResult {
                 id: msg.id,
                 sub_id: msg.subscription.id,
-                msg: OutgoingMessage::notice(&format!("get event error: {}", err)),
+                msg: m,
             });
         }
     }
